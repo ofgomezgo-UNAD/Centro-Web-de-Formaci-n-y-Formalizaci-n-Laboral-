@@ -46,13 +46,13 @@
     .small{font-size:13px;color:var(--muted)}
     .section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
     .list{display:grid;gap:8px}
-    .course, .vacancy{border-left:4px solid var(--primary);padding:10px;border-radius:6px;background:linear-gradient(180deg, rgba(0,0,0,0.01), transparent)}
+    .course, .vacancy, .exam, .submission{border-left:4px solid var(--primary);padding:10px;border-radius:6px;background:linear-gradient(180deg, rgba(0,0,0,0.01), transparent)}
     footer{font-size:12px;color:var(--muted);text-align:center;padding:8px}
 
     /* Modal (simple, lightweight) */
     .modal{position:fixed;inset:0;background:rgba(2,6,23,.45);display:none;align-items:center;justify-content:center;padding:12px}
     .modal.open{display:flex}
-    .modal .dialog{max-width:760px;width:100%;background:var(--card);padding:12px;border-radius:12px}
+    .modal .dialog{max-width:760px;width:100%;background:var(--card);padding:12px;border-radius:12px;max-height:90vh;overflow:auto}
 
     /* Responsive */
     @media(min-width:720px){
@@ -62,6 +62,11 @@
     }
     /* Low-data indicator */
     .low-data-badge{background:#fff8e1;border:1px solid #ffecb3;padding:6px;border-radius:8px;font-size:12px;color:#7a4d00}
+
+    /* Tiny admin badge */
+    .admin-badge{background:#e6f0ff;border:1px solid #cce0ff;padding:6px;border-radius:8px;font-size:12px;color:var(--primary)}
+    .muted-action{background:transparent;border:1px dashed #e6e9ef;padding:6px;border-radius:6px;color:var(--muted)}
+    pre.small{white-space:pre-wrap;font-size:13px}
   </style>
 </head>
 <body>
@@ -131,6 +136,20 @@
       </div>
     </section>
 
+    <!-- Certificación (nuevo) -->
+    <section class="card" aria-labelledby="certTitle">
+      <div class="section-title">
+        <h2 id="certTitle" style="margin:0;font-size:16px">Módulo de Certificación y Exámenes</h2>
+        <div class="small">Realiza exámenes cortos para obtener calificaciones y certificados (simulado)</div>
+      </div>
+
+      <div class="small">Los exámenes se corrigen automáticamente (preguntas de opción múltiple). Después de presentar, puedes enviar tu resultado para revisión por un administrador.</div>
+
+      <div style="margin-top:10px" id="examsList" class="list" aria-live="polite">
+        <!-- Exámenes generados por JS -->
+      </div>
+    </section>
+
     <!-- Módulo de empleabilidad con IA -->
     <section class="card" aria-labelledby="empTitle">
       <div class="section-title">
@@ -144,6 +163,26 @@
       </div>
 
       <div id="recoArea" style="margin-top:10px"></div>
+    </section>
+
+    <!-- Administracion (nuevo) -->
+    <section class="card" aria-labelledby="adminTitle">
+      <div class="section-title">
+        <h2 id="adminTitle" style="margin:0;font-size:16px">Módulo de Administración</h2>
+        <div class="small">Inicia sesión como administrador para revisar y calificar exámenes</div>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div id="adminStatus" class="admin-badge small">Sesión: invitado</div>
+        <div style="flex:1"></div>
+        <button class="btn" id="adminLoginBtn" style="font-size:13px">Iniciar sesión (Admin)</button>
+        <button class="ghost" id="adminLogoutBtn" style="font-size:13px;display:none">Cerrar sesión</button>
+      </div>
+
+      <div id="adminPanel" style="margin-top:12px;display:none">
+        <div class="small" style="margin-bottom:8px">Lista de envíos de exámenes (puedes calificar manualmente o revisar resultados)</div>
+        <div id="submissionsList" class="list"></div>
+      </div>
     </section>
 
     <!-- Formalización -->
@@ -204,6 +243,33 @@
       { id:'v2', title:'Vendedor punto fijo', requirements:['ventas','atención al cliente','registro'] },
       { id:'v3', title:'Ayudante de mantenimiento', requirements:['mecánica','herramientas','electricidad'] },
       { id:'v4', title:'Auxiliar administrativo (jornada parcial)', requirements:['registro','digital','ventas'] },
+    ];
+
+    // ===== Exámenes de certificación (nuevo) =====
+    // Cada examen contiene preguntas de opción múltiple con answer = index de la opción correcta
+    const EXAMS = [
+      {
+        id: 'e1',
+        title: 'Certificación: Manipulación de Alimentos (Básico)',
+        description: 'Preguntas sobre higiene y prácticas básicas de manipulación.',
+        passingPercent: 70,
+        questions: [
+          { q: '¿Cuál es la temperatura mínima segura para conservar alimentos perecederos?', options: ['A temperatura ambiente', 'Menos de 5°C', 'Entre 20°C y 25°C', 'Más de 30°C'], answer: 1 },
+          { q: '¿Con qué frecuencia se deben lavar las manos al manipular alimentos?', options: ['Antes de empezar y después de contacto con posibles contaminantes', 'Solo al inicio de la jornada', 'Nunca', 'Solo cuando están visiblemente sucias'], answer: 0 },
+          { q: '¿Qué se debe usar para cubrir alimentos en almacenamiento?', options: ['Plástico sucio', 'Ropa', 'Envases limpios y tapados', 'Nada'], answer: 2 }
+        ]
+      },
+      {
+        id: 'e2',
+        title: 'Certificación: Servicio al Cliente (Básico)',
+        description: 'Habilidades prácticas para atención y comunicación con clientes.',
+        passingPercent: 60,
+        questions: [
+          { q: 'La escucha activa implica:', options: ['Interrumpir para corregir', 'Prestar atención y confirmar comprensión', 'Ignorar al cliente', 'Responder con indiferencia'], answer: 1 },
+          { q: 'Un saludo profesional al atender es:', options: ['Hola ¿qué?', 'Buenos días, ¿en qué puedo ayudarle?', 'Déjeme esperar', 'No saludar'], answer: 1 },
+          { q: 'Cuando un cliente está molesto, lo mejor es:', options: ['Pelear', 'Escucharlo y ofrecer soluciones', 'Ignorarlo', 'Reírse'], answer: 1 }
+        ]
+      }
     ];
 
     // ===== Manejo de perfil local (localStorage) =====
@@ -291,6 +357,28 @@
           const id = btn.dataset.id;
           openModal(`<h3>${COURSES.find(x=>x.id===id).title}</h3>
             <p class="small">Contenido demo: texto con actividades y enlaces de bajo consumo. (Aquí se integraría SCORM o paquetes descargables).</p>`);
+        });
+      });
+    }
+
+    // ===== Mostrar exámenes (nuevo) =====
+    const examsList = qs('examsList');
+    function renderExams(){
+      examsList.innerHTML = '';
+      EXAMS.forEach(ex=>{
+        const el = document.createElement('div');
+        el.className = 'exam';
+        el.innerHTML = `<strong>${ex.title}</strong>
+          <div class="small">${ex.description}</div>
+          <div class="small" style="margin-top:6px">Preguntas: ${ex.questions.length} · Aprobación: ${ex.passingPercent}%</div>
+          <div style="margin-top:8px"><button class="btn" data-exid="${ex.id}">Presentar examen</button></div>`;
+        examsList.appendChild(el);
+      });
+
+      examsList.querySelectorAll('button[data-exid]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const exId = btn.dataset.exid;
+          startExam(exId);
         });
       });
     }
@@ -386,6 +474,386 @@
     closeModal.addEventListener('click', hideModal);
     modal.addEventListener('click', (e)=>{ if(e.target===modal) hideModal(); });
 
+    // ===== Certificación: lógica de exámenes =====
+    // Storage key for submissions
+    const SUBMISSIONS_KEY = 'formaljob_submissions';
+
+    function loadSubmissions(){
+      const raw = localStorage.getItem(SUBMISSIONS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }
+    function saveSubmissions(subs){
+      localStorage.setItem(SUBMISSIONS_KEY, JSON.stringify(subs));
+    }
+    function addSubmission(sub){
+      const subs = loadSubmissions();
+      subs.push(sub);
+      saveSubmissions(subs);
+    }
+
+    // Start exam flow
+    function startExam(exId){
+      const exam = EXAMS.find(e=>e.id===exId);
+      if(!exam) return;
+      // Prepare state
+      const state = {
+        examId: exam.id,
+        index: 0,
+        answers: Array(exam.questions.length).fill(null)
+      };
+      renderExamModal(exam, state);
+    }
+
+    function renderExamModal(exam, state){
+      const q = exam.questions[state.index];
+      let html = `<h3>${exam.title}</h3>`;
+      html += `<div class="small">${exam.description}</div>`;
+      html += `<div style="margin-top:10px"><strong>Pregunta ${state.index+1} de ${exam.questions.length}</strong></div>`;
+      html += `<p class="small" style="margin-top:6px">${q.q}</p>`;
+      html += `<form id="examForm">`;
+      q.options.forEach((opt, i)=>{
+        const checked = state.answers[state.index] === i ? 'checked' : '';
+        html += `<div style="margin-top:6px"><label><input type="radio" name="opt" value="${i}" ${checked}> <span class="small">${opt}</span></label></div>`;
+      });
+      html += `</form>`;
+
+      html += `<div style="display:flex;gap:8px;margin-top:12px">`;
+      html += `<button class="ghost" id="prevQ" ${state.index===0?'disabled':''}>Anterior</button>`;
+      html += `<button class="ghost" id="nextQ" ${state.index===exam.questions.length-1?'disabled':''}>Siguiente</button>`;
+      html += `<div style="flex:1"></div>`;
+      html += `<button class="btn" id="submitExam">${state.index===exam.questions.length-1?'Enviar examen':'Enviar y finalizar'}</button>`;
+      html += `</div>`;
+
+      openModal(html);
+
+      // Handlers
+      const examForm = document.getElementById('examForm');
+      examForm.addEventListener('change', (ev)=>{
+        const val = examForm.opt && examForm.opt.value;
+        if(val !== undefined) state.answers[state.index] = parseInt(val,10);
+      });
+
+      qs('prevQ').addEventListener('click', ()=>{
+        // Save selection (already via change)
+        if(state.index>0) state.index--;
+        renderExamModal(exam, state);
+      });
+      qs('nextQ').addEventListener('click', ()=>{
+        if(state.index < exam.questions.length-1) state.index++;
+        renderExamModal(exam, state);
+      });
+
+      qs('submitExam').addEventListener('click', ()=>{
+        // If not all answered, confirm
+        const unanswered = state.answers.reduce((acc, a, i)=> a===null ? acc.concat(i+1) : acc, []);
+        if(unanswered.length){
+          if(!confirm('No respondió todas las preguntas. Desea enviar de todos modos?')) return;
+        }
+        // Grade
+        const correct = exam.questions.reduce((acc, ques, idx)=>{
+          return acc + ((state.answers[idx] !== null && state.answers[idx] === ques.answer) ? 1 : 0);
+        }, 0);
+        const total = exam.questions.length;
+        const percent = Math.round((correct/total)*100);
+        const passed = percent >= exam.passingPercent;
+
+        // Gather profile if exists
+        const profile = getProfile();
+        let workerName = profile ? profile.name : null;
+        let trade = profile ? profile.trade : null;
+        if(!workerName){
+          workerName = prompt('No hay perfil guardado. Por favor ingresa tu nombre para registrar la presentación:') || 'Anónimo';
+          trade = prompt('Si lo deseas, ingresa oficio/rol (opcional):') || '';
+        }
+
+        // Save submission
+        const submission = {
+          id: 's_' + Date.now(),
+          examId: exam.id,
+          examTitle: exam.title,
+          workerName,
+          trade,
+          timestamp: new Date().toISOString(),
+          answers: state.answers,
+          autoScorePercent: percent,
+          autoPassed: passed,
+          adminGrade: null,
+          gradedBy: null,
+          notes: ''
+        };
+        addSubmission(submission);
+
+        // Show result
+        let resultHtml = `<h3>Resultado: ${exam.title}</h3>`;
+        resultHtml += `<div class="small">Nombre: ${submission.workerName} · Oficio: ${submission.trade||'--'}</div>`;
+        resultHtml += `<div style="margin-top:8px" class="small"><strong>Puntaje automático:</strong> ${percent}% · ${passed ? '<span style="color:green">Aprobado</span>' : '<span style="color:#b91c1c">No aprobado</span>'}</div>`;
+        resultHtml += `<div style="margin-top:8px" class="small">Puedes enviar este resultado para revisión administrativa si deseas una calificación oficial.</div>`;
+        resultHtml += `<div style="margin-top:8px"><button class="btn" id="sendForReview">Enviar para revisión</button> <button class="ghost" id="closeAfter">Cerrar</button></div>`;
+        openModal(resultHtml);
+
+        qs('sendForReview').addEventListener('click', ()=>{
+          alert('Resultado enviado para revisión administrativa (simulado). El administrador podrá ver y calificar este envío.');
+          hideModal();
+          renderAdminSubmissionsIfOpen();
+        });
+        qs('closeAfter').addEventListener('click', hideModal);
+      });
+    }
+
+    // ===== Administración: autenticación y calificación =====
+    const ADMIN_USER = 'UNAD';
+    const ADMIN_PASS = '12345';
+    const adminLoginBtn = qs('adminLoginBtn');
+    const adminLogoutBtn = qs('adminLogoutBtn');
+    const adminPanel = qs('adminPanel');
+    const adminStatus = qs('adminStatus');
+    const submissionsList = qs('submissionsList');
+
+    function isAdminLogged(){
+      return sessionStorage.getItem('formaljob_admin') === 'true';
+    }
+
+    function renderAdminSubmissionsIfOpen(){
+      if(!isAdminLogged()) return;
+      const subs = loadSubmissions().sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
+      submissionsList.innerHTML = '';
+      if(subs.length===0){
+        submissionsList.innerHTML = `<div class="small">No hay envíos de exámenes todavía.</div>`;
+        return;
+      }
+      subs.forEach(s=>{
+        const el = document.createElement('div');
+        el.className = 'submission';
+        el.innerHTML = `<strong>${s.examTitle}</strong>
+          <div class="small">Trabajador: ${s.workerName} · Oficio: ${s.trade||'--'} · Fecha: ${new Date(s.timestamp).toLocaleString()}</div>
+          <div class="small" style="margin-top:6px">Puntaje automático: ${s.autoScorePercent}% · ${s.autoPassed ? 'Aprobado' : 'No aprobado'}</div>
+          <div style="margin-top:8px">
+            <button class="ghost" data-view="${s.id}">Ver respuestas</button>
+            <button class="ghost" data-grade="${s.id}">Calificar / Actualizar nota</button>
+            <div style="margin-top:8px" id="adminArea_${s.id}"></div>
+          </div>`;
+        submissionsList.appendChild(el);
+      });
+
+      // Attach handlers for view and grade
+      submissionsList.querySelectorAll('button[data-view]').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const id = b.dataset.view;
+          const s = loadSubmissions().find(x=>x.id===id);
+          if(!s) return alert('Envío no encontrado');
+          // Build view
+          const exam = EXAMS.find(e=>e.id===s.examId);
+          let html = `<h3>Respuestas — ${s.examTitle}</h3>`;
+          html += `<div class="small">Trabajador: ${s.workerName} · Fecha: ${new Date(s.timestamp).toLocaleString()}</div>`;
+          html += `<div style="margin-top:8px">`;
+          exam.questions.forEach((q, i)=>{
+            const ans = s.answers[i];
+            const ansText = ans===null ? '<em class="small">Sin responder</em>' : q.options[ans];
+            const correct = q.answer === ans;
+            html += `<div style="margin-top:8px" class="small"><strong>Pregunta ${i+1}:</strong> ${q.q}<br>Respuesta: ${ansText} ${ans===null ? '' : (correct ? ' · <span style="color:green">Correcta</span>' : ' · <span style="color:#b91c1c">Incorrecta</span>')}<br>Respuesta correcta: ${q.options[q.answer]}</div>`;
+          });
+          html += `</div>`;
+          openModal(html);
+        });
+      });
+
+      submissionsList.querySelectorAll('button[data-grade]').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const id = b.dataset.grade;
+          const adminArea = qs('adminArea_' + id);
+          const s = loadSubmissions().find(x=>x.id===id);
+          if(!s) return alert('Envío no encontrado');
+
+          // Inline grade form
+          adminArea.innerHTML = `
+            <div style="margin-top:8px">
+              <label class="small">Calificación numérica (0-100)</label>
+              <input id="gradeInput_${id}" type="number" min="0" max="100" value="${s.adminGrade !== null ? s.adminGrade : s.autoScorePercent}" />
+              <label class="small" style="margin-top:6px">Notas (opcional)</label>
+              <input id="notesInput_${id}" type="text" placeholder="Comentarios para el trabajador" value="${s.notes || ''}" />
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn" id="saveGrade_${id}">Guardar calificación</button>
+                <button class="ghost" id="cancelGrade_${id}">Cancelar</button>
+              </div>
+            </div>
+          `;
+
+          qs('saveGrade_' + id).addEventListener('click', ()=>{
+            const val = parseInt(qs('gradeInput_' + id).value,10);
+            const notes = qs('notesInput_' + id).value || '';
+            if(isNaN(val) || val < 0 || val > 100){
+              return alert('Ingresa una calificación válida entre 0 y 100.');
+            }
+            // Update submission
+            const subs = loadSubmissions();
+            const idx = subs.findIndex(x=>x.id===id);
+            if(idx === -1) return alert('Envío no encontrado (al guardar).');
+            subs[idx].adminGrade = val;
+            subs[idx].gradedBy = ADMIN_USER;
+            subs[idx].notes = notes;
+            subs[idx].gradedAt = new Date().toISOString();
+            saveSubmissions(subs);
+            alert('Calificación guardada.');
+            renderAdminSubmissionsIfOpen(); // refresh
+          });
+
+          qs('cancelGrade_' + id).addEventListener('click', ()=>{
+            adminArea.innerHTML = '';
+          });
+        });
+      });
+    }
+
+    adminLoginBtn.addEventListener('click', ()=>{
+      // Simple modal prompt (low-data)
+      const html = `<h3>Ingreso Administrativo</h3>
+        <div class="small">Usuario y contraseña para acceder al panel de administración.</div>
+        <div style="margin-top:8px">
+          <label class="small">Usuario</label>
+          <input id="adminUser" type="text" value="" />
+          <label class="small" style="margin-top:6px">Contraseña</label>
+          <input id="adminPass" type="password" value="" />
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn" id="doAdminLogin">Ingresar</button>
+            <button class="ghost" id="doAdminCancel">Cancelar</button>
+          </div>
+        </div>`;
+      openModal(html);
+      qs('doAdminCancel').addEventListener('click', hideModal);
+      qs('doAdminLogin').addEventListener('click', ()=>{
+        const u = qs('adminUser').value.trim();
+        const p = qs('adminPass').value.trim();
+        if(u === ADMIN_USER && p === ADMIN_PASS){
+          sessionStorage.setItem('formaljob_admin','true');
+          alert('Acceso concedido. Bienvenido, administrador.');
+          hideModal();
+          updateAdminUI();
+        } else {
+          alert('Credenciales incorrectas.');
+        }
+      });
+    });
+
+    adminLogoutBtn.addEventListener('click', ()=>{
+      sessionStorage.removeItem('formaljob_admin');
+      updateAdminUI();
+    });
+
+    function updateAdminUI(){
+      if(isAdminLogged()){
+        adminStatus.textContent = 'Sesión: administrador (UNAD)';
+        adminLoginBtn.style.display = 'none';
+        adminLogoutBtn.style.display = 'inline-block';
+        adminPanel.style.display = 'block';
+        renderAdminSubmissionsIfOpen();
+      } else {
+        adminStatus.textContent = 'Sesión: invitado';
+        adminLoginBtn.style.display = 'inline-block';
+        adminLogoutBtn.style.display = 'none';
+        adminPanel.style.display = 'none';
+      }
+    }
+
+    function renderAdminSubmissionsIfOpen(){
+      if(isAdminLogged()){
+        renderAdminSubmissionsIfOpen = renderAdminSubmissionsIfOpen; // no-op to satisfy linter
+        // call actual renderer
+        const subs = loadSubmissions(); // ensures key exists
+        // call internal function that was defined above
+        // We'll just call the function that iterates based on isAdminLogged
+        // (the function above handles refresh when called directly)
+        // But to avoid recursion confusion, call the previously defined renderer logic:
+        const tmp = () => {
+          const subs2 = loadSubmissions().sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
+          submissionsList.innerHTML = '';
+          if(subs2.length===0){
+            submissionsList.innerHTML = `<div class="small">No hay envíos de exámenes todavía.</div>`;
+            return;
+          }
+          subs2.forEach(s=>{
+            const el = document.createElement('div');
+            el.className = 'submission';
+            el.innerHTML = `<strong>${s.examTitle}</strong>
+              <div class="small">Trabajador: ${s.workerName} · Oficio: ${s.trade||'--'} · Fecha: ${new Date(s.timestamp).toLocaleString()}</div>
+              <div class="small" style="margin-top:6px">Puntaje automático: ${s.autoScorePercent}% · ${s.autoPassed ? 'Aprobado' : 'No aprobado'}</div>
+              <div class="small" style="margin-top:6px">Calificación administrativa: ${s.adminGrade !== null ? s.adminGrade + '%' : '<em>Sin calificar</em>'} ${s.gradedBy ? '· Calificado por ' + s.gradedBy : ''}</div>
+              <div style="margin-top:8px">
+                <button class="ghost" data-view="${s.id}">Ver respuestas</button>
+                <button class="ghost" data-grade="${s.id}">Calificar / Actualizar nota</button>
+                <div style="margin-top:8px" id="adminArea_${s.id}"></div>
+              </div>`;
+            submissionsList.appendChild(el);
+          });
+
+          // Attach handlers
+          submissionsList.querySelectorAll('button[data-view]').forEach(b=>{
+            b.addEventListener('click', ()=>{
+              const id = b.dataset.view;
+              const s = loadSubmissions().find(x=>x.id===id);
+              if(!s) return alert('Envío no encontrado');
+              const exam = EXAMS.find(e=>e.id===s.examId);
+              let html = `<h3>Respuestas — ${s.examTitle}</h3>`;
+              html += `<div class="small">Trabajador: ${s.workerName} · Fecha: ${new Date(s.timestamp).toLocaleString()}</div>`;
+              html += `<div style="margin-top:8px">`;
+              exam.questions.forEach((q, i)=>{
+                const ans = s.answers[i];
+                const ansText = ans===null ? '<em class="small">Sin responder</em>' : q.options[ans];
+                const correct = q.answer === ans;
+                html += `<div style="margin-top:8px" class="small"><strong>Pregunta ${i+1}:</strong> ${q.q}<br>Respuesta: ${ansText} ${ans===null ? '' : (correct ? ' · <span style="color:green">Correcta</span>' : ' · <span style="color:#b91c1c">Incorrecta</span>')}<br>Respuesta correcta: ${q.options[q.answer]}</div>`;
+              });
+              html += `</div>`;
+              openModal(html);
+            });
+          });
+
+          submissionsList.querySelectorAll('button[data-grade]').forEach(b=>{
+            b.addEventListener('click', ()=>{
+              const id = b.dataset.grade;
+              const adminArea = qs('adminArea_' + id);
+              const s = loadSubmissions().find(x=>x.id===id);
+              if(!s) return alert('Envío no encontrado');
+
+              adminArea.innerHTML = `
+                <div style="margin-top:8px">
+                  <label class="small">Calificación numérica (0-100)</label>
+                  <input id="gradeInput_${id}" type="number" min="0" max="100" value="${s.adminGrade !== null ? s.adminGrade : s.autoScorePercent}" />
+                  <label class="small" style="margin-top:6px">Notas (opcional)</label>
+                  <input id="notesInput_${id}" type="text" placeholder="Comentarios para el trabajador" value="${s.notes || ''}" />
+                  <div style="display:flex;gap:8px;margin-top:8px">
+                    <button class="btn" id="saveGrade_${id}">Guardar calificación</button>
+                    <button class="ghost" id="cancelGrade_${id}">Cancelar</button>
+                  </div>
+                </div>
+              `;
+
+              qs('saveGrade_' + id).addEventListener('click', ()=>{
+                const val = parseInt(qs('gradeInput_' + id).value,10);
+                const notes = qs('notesInput_' + id).value || '';
+                if(isNaN(val) || val < 0 || val > 100){
+                  return alert('Ingresa una calificación válida entre 0 y 100.');
+                }
+                const subs3 = loadSubmissions();
+                const idx = subs3.findIndex(x=>x.id===id);
+                if(idx === -1) return alert('Envío no encontrado (al guardar).');
+                subs3[idx].adminGrade = val;
+                subs3[idx].gradedBy = ADMIN_USER;
+                subs3[idx].notes = notes;
+                subs3[idx].gradedAt = new Date().toISOString();
+                saveSubmissions(subs3);
+                alert('Calificación guardada.');
+                updateAdminUI();
+              });
+
+              qs('cancelGrade_' + id).addEventListener('click', ()=>{
+                adminArea.innerHTML = '';
+              });
+            });
+          });
+        }; // tmp end
+        tmp();
+      }
+    }
+
     // ===== Formalización (guía paso a paso simple) =====
     qs('startFormal').addEventListener('click', ()=>{
       openModal(`<h3>Proceso de formalización (resumen)</h3>
@@ -447,7 +915,9 @@
       if(localStorage.getItem(lowDataKey) === null) localStorage.setItem(lowDataKey,'true');
       updateLowDataUI();
       renderCourses();
+      renderExams();
       loadProfileToForm();
+      updateAdminUI();
     }
     init();
 
@@ -459,6 +929,7 @@
     // 2) Paquetes SCORM o contenidos offline (zip + manifest) para el módulo de capacitación
     // 3) Autenticación ligera (OTP / social) y encriptado de datos sensibles en tránsito
     // 4) Métricas y telemetría (opt-in) para medir impacto en ODS (empleabilidad y reducción de informalidad)
+
   </script>
 </body>
 </html>
